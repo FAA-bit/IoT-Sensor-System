@@ -10,7 +10,7 @@ import time
 # Configuration
 # =========================================================
 
-MQTT_BROKER = "172.16.219.12"     ## Just an example, replace with your MQTT broker address.
+MQTT_BROKER = os.getenv("MQTT_BROKER")     ## Just an example, replace with your MQTT broker address.
 MQTT_PORT = 1883
 MQTT_TOPIC = "iot/esp32/dht11"
 

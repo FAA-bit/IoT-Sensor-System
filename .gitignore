@@ -1,2 +1,13 @@
-# Local secrets
+# ESP-IDF
+build/
+managed_components/
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
 main/secrets.h

@@ -24,8 +24,8 @@ different parts of the system is working.
 
 ## Monitoring
 
-The API has a simple monitoring endpoint: GET /api/health
-It can be tested with: Invoke-RestMethod http://localhost:5000/api/health
+- The API has a simple monitoring endpoint: GET /api/health
+- It can be tested with: Invoke-RestMethod http://localhost:5000/api/health
 
 The endpoint shows:
 - API status
