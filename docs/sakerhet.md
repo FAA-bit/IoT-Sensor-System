@@ -1,87 +1,91 @@
-# Security Analysis
+# Security Notes
 
-## 1. Overview
+## Scope
 
-Security is important because the ESP32, MQTT broker and API are communicating over a network.
+This document describes the security measures and limitations of the
+current development setup. It is not a security certification. The
+system should be treated as a local development project, not as a
+production-ready service.
 
-I have added some basic security measures to protect the system and to avoid accepting incorrect data.
+## Current Measures
 
-The main security measures I used are:
-- MQTT username and password
-- Keeping passwords outside GitHub
-- Input validation
-- Using a local network during development
+### MQTT Authentication
 
----
+The Mosquitto configuration disables anonymous access and uses a
+password file. MQTT clients must authenticate with broker credentials.
+The ESP32 credentials are configured locally in `main/secrets.h`. The
+Python API reads `MQTT_USERNAME` and `MQTT_PASSWORD` from environment
+variables and uses them when both are set.
 
-## 1. MQTT Authentication
+### Credential Handling
 
-The MQTT broker does not allow anonymous users.
+`main/secrets.h` is listed in `.gitignore` and is not tracked by Git.
+Create this file locally with credentials for your own environment, and
+do not commit or share it. The API credentials should also be supplied
+through environment variables rather than hard-coded in source files.
 
-The ESP32 and the Python API connect to the MQTT broker using a username and password.
+If credentials have ever been committed, exposed, or shared, removing
+them from the current working tree is not sufficient: change or revoke
+them at the Wi-Fi and MQTT broker, then update the local configuration.
 
-The MQTT username is: esp32client
-The password is not written directly in the main source code.
+### Input Validation
 
-This helps prevent unknown devices from connecting anonymously to the MQTT broker.
+Before storing incoming MQTT readings, the API checks that the message
+is valid JSON, includes `temperature` and `humidity`, and that both
+values are numeric and within the configured ranges:
 
----
+- Temperature: `-40` to `80` °C
+- Humidity: `0` to `100` %
 
-## 2. Protecting Passwords
+This helps reject malformed or implausible readings. It does not
+authenticate message publishers or replace access control on the MQTT
+broker.
 
-The Wi-Fi password and MQTT password are stored in: main/secrets.h
-The secrets.h file is added to .gitignore
+## Risks and Limitations
 
-This means the file should not be uploaded to GitHub.
-The passwords are therefore kept locally and are not included in the public source code.
-If another person wants to run the project, they need to create their own secrets.h file with their own credentials.
+### MQTT traffic is not encrypted
 
----
+The current broker listener uses MQTT on port `1883` without TLS.
+Username and password authentication does not encrypt the connection;
+credentials and messages may be exposed to parties able to observe the
+network traffic.
 
-## 3. Input Validation
+For deployment beyond a trusted development network, configure MQTT over
+TLS, validate the broker certificate on clients, and use unique,
+strongly protected credentials.
 
-The system also checks the sensor data before accepting it.
-The Python API checks that the MQTT message contains valid JSON.
-It also checks the temperature and humidity values.
-The accepted ranges are: 
-- Temperature: -40 °C to 80 °C
-- Humidity:     0% to 100%
-This helps protect the API from incorrect or unexpected values.
+### Broker listens on all interfaces
 
----
+The Mosquitto configuration listens on `0.0.0.0:1883`. This makes the
+broker reachable through all network interfaces, subject to firewall and
+network controls. Restrict access to trusted devices and networks, and
+avoid exposing the listener to the public internet.
 
-## 4. Security Risks
+### Flask API has no authentication or HTTPS
 
-### Risk 1: Unauthorized MQTT access
+The Flask development server binds to `0.0.0.0` on port `5000`. The API
+endpoints do not require authentication and use plain HTTP. Anyone who
+can reach the server may query the readings and health information.
+Keep the API on a trusted development network. A production deployment
+should use an authenticated production-grade server and HTTPS.
 
-Someone on the network could try to connect to the MQTT broker.
-To reduce this risk, MQTT username and password authentication is enabled and anonymous access is disabled.
+### Secrets in firmware
 
-### Risk 2: Passwords being exposed
+ESP32 credentials are compiled into the firmware from `main/secrets.h`.
+Keeping the header out of Git prevents accidental repository disclosure,
+but does not protect credentials embedded in a firmware image or
+extracted from a device. Use credentials with limited privileges and
+rotate them if a device or firmware image is exposed.
 
-If the Wi-Fi or MQTT passwords were written directly in the source code and uploaded to GitHub, someone could see them.
-To reduce this risk, the passwords are stored in secrets.h and the file is excluded using .gitignore.
+## Deployment Recommendations
 
-### Risk 3: Invalid sensor data
-
-Someone or something could send incorrect data to the MQTT topic.
-The Python application therefore checks the JSON and the sensor value ranges before storing the data.
-Invalid data is rejected and logged.
-
----
-
-## 5. MQTT and TLS
-
-The current MQTT connection uses:mqtt://1883
-There is currently no TLS encryption.
-This means that although the MQTT broker requires authentication, the MQTT communication itself is not encrypted.
-For a production system, I would improve this by using MQTT over TLS and a secure port.
-
----
-
-## 6. Network Security
-
-The MQTT broker is currently running on my computer and is used on the local development network.
-The IP addresses are local and can change when using another network.
-
----
+- Use TLS for MQTT and HTTPS for the API.
+- Keep broker and API ports restricted to trusted networks with firewall
+  rules.
+- Use unique, strong credentials and rotate them when exposure is
+  suspected.
+- Grant MQTT clients only the topic permissions they need.
+- Do not commit credentials, generated firmware containing real
+  credentials, or broker password files.
+- Replace the Flask development server with a production-grade WSGI
+  server before deployment.

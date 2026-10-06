@@ -1,89 +1,235 @@
 # IoT Sensor System
 
-## Description
+A small IoT project that reads temperature and humidity data from a DHT11 sensor connected to an ESP32-C6, publishes the readings over MQTT, and exposes the latest measurements through a Python Flask REST API.
 
-An IoT system for collecting temperature and humidity data from a
-physical DHT11 sensor connected to an ESP32-C6.
+## Overview
 
-The sensor data is sent using MQTT to a Mosquitto broker. A Python
-application receives the data and makes it available through a
-Flask REST API.
+This project demonstrates an end-to-end IoT data flow:
+
+DHT11 sensor → ESP32-C6 → Wi-Fi → MQTT broker → Python MQTT client → Flask REST API
+
+The system is designed for a local lab or home environment and focuses on reliable sensor data acquisition, MQTT communication, and API access to the latest reading.
+
+## Features
+
+- DHT11 sensor reading on ESP32-C6
+- Wi-Fi connectivity for the ESP32 device
+- MQTT publishing of JSON sensor data
+- MQTT subscriber in Python
+- Input validation for sensor values and JSON payloads
+- Flask API with live sensor data
+- Health endpoint for monitoring
+- Built-in troubleshooting and test documentation
 
 ## Architecture
 
-DHT11 → ESP32-C6 → Wi-Fi → MQTT → Mosquitto → Python/Paho MQTT → REST API
+### Hardware
+
+- ESP32-C6
+- DHT11 sensor
+- Wi-Fi network
+- Mosquitto MQTT broker
+
+### Software
+
+- C firmware running on the ESP32
+- Python API receiving MQTT messages
+- Flask service exposing sensor data over HTTP
+
+### MQTT topic
+
+The system publishes and subscribes to:
+
+- `iot/esp32/dht11`
+
+### Message format
+
+```json
+{
+  "temperature": 22.4,
+  "humidity": 41.2
+}
+```
+
+## Project Structure
+
+```text
+.
+├── api/                  # Python Flask API and MQTT consumer
+│   ├── app.py
+│   ├── README.md           # REST API documentation
+│   └── requirements.txt
+├── components/          # Hardware component drivers
+├── docs/                # Project documentation
+├── main/                # ESP32 firmware source
+│   ├── main.c
+│   ├── secrets.h
+│   └── CMakeLists.txt
+├── tests/               # Test documentation and protocol notes
+├── CMakeLists.txt       # ESP-IDF project configuration
+├── mqtt.conf            # Example MQTT broker configuration
+├── README.md            # Project overview
+├── sdkconfig            # ESP-IDF config
+└── dependencies.lock    # Dependency lock file
+```
 
 ## Requirements
 
-- ESP32-C6
-- DHT11
+- ESP32-C6 development board
+- DHT11 sensor module
 - Mosquitto MQTT broker
-- ESP-IDF
-- Python 3
+- ESP-IDF toolchain
+- Python 3.x
 - Flask
-- Paho MQTT
-- VS Code
-
-## Installation
-
-Install ESP-IDF and Python.
-
-Install the Python dependencies:
-
-powershell: cd api
-pip install -r requirements.txt
-
-Install Mosquitto and make sure it is available in the terminal.
-The ESP32-C6 project uses ESP-IDF.
+- Paho MQTT client
+- VS Code or similar IDE
 
 ## Configuration
 
+Before running the firmware, update the Wi-Fi and MQTT settings in `main/secrets.h`.
+
+The file contains the following values that should be customized for your environment:
+
+- `WIFI_SSID`
+- `WIFI_PASSWORD`
+- `MQTT_BROKER_URI`
+- `MQTT_USERNAME`
+- `MQTT_PASSWORD`
+
+Important: do not commit real credentials to version control. Use local-only configuration or environment variables when possible.
+
+## Setup and Installation
+
+### 1. Install ESP-IDF
+
+Follow the official ESP-IDF installation guide for your operating system.
+
+### 2. Install Python dependencies
+
+```powershell
+cd api
+pip install -r requirements.txt
+```
+
+### 3. Start Mosquitto
+
+Make sure the Mosquitto broker is running and reachable from the ESP32 and the Python API server.
+
+### 4. Build and flash the ESP32 firmware
+
+From the project root:
+
+```powershell
+idf.py build
+idf.py flash
+```
+
+If you want to monitor the device output:
+
+```powershell
+idf.py monitor
+```
+
+### 5. Start the REST API
+
+```powershell
+cd api
+python app.py
+```
+
+The API runs on:
+
+- `http://localhost:5000`
+
 ## API
 
-## Testing
+### GET /api/sensor
 
-The system has been tested from the physical DHT11 sensor to the
-REST API.
+Returns the latest valid sensor reading.
 
-Tests include:
+Example response:
+
+```json
+{
+  "temperature": 22.4,
+  "humidity": 41.2
+}
+```
+
+### GET /api/health
+
+Returns the current service status and monitoring information.
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "messages_received": 10,
+  "latest_temperature": 22.4,
+  "latest_humidity": 41.2
+}
+```
+
+If no valid sensor data has been received yet, the API returns:
+
+```json
+{
+  "error": "No sensor data available"
+}
+```
+
+with HTTP status `503`.
+
+## Validation and Testing
+
+The project has been tested end-to-end from hardware measurement to rest API output.
+
+Included test areas:
+
 - DHT11 sensor readings
 - ESP32-C6 Wi-Fi connection
-- MQTT connection
+- MQTT connectivity
 - MQTT publishing
-- Python MQTT reception
+- Python MQTT subscription
 - JSON validation
-- REST API
-- Health endpoint
-- Monitoring with messages_received
-- MQTT connection fault
-- MQTT topic fault
+- REST API responses
+- Health endpoint monitoring
+- MQTT connection failure handling
+- Wrong-topic handling
 
-Detailed tests can be found in: tests/testprotokoll.md
+Detailed testing notes can be found in:
+
+- `tests/testprotokoll.md`
 
 ## Troubleshooting
 
-Two communication faults were intentionally introduced and tested.
-
 ### Wrong MQTT broker IP
 
-The API could not connect to the MQTT broker and showed a timeout.
-The problem was fixed by changing the broker IP address back to the
-correct address.
+If the API cannot reach the MQTT broker or times out, verify that the broker address is correct in the ESP32 configuration and in the Python application settings.
 
 ### Wrong MQTT topic
 
-The API connected to MQTT but did not receive sensor data because
-it was subscribed to the wrong topic.
-The problem was fixed by changing the topic back to: iot/esp32/dht11
+If the API subscribes to the wrong topic, it may appear connected but receive no data. The correct topic is:
 
-More details can be found in: docs/felsokning.md
+- `iot/esp32/dht11`
+
+More troubleshooting details are available in:
+
+- `docs/felsokning.md`
 
 ## Documentation
 
-More information about the project can be found in:
-- docs/arkitektur.md – system architecture
-- docs/api.md – REST API documentation
-- docs/sakerhet.md – security
-- docs/felsokning.md – troubleshooting
-- docs/monitoring.md – logging and monitoring
-- tests/testprotokoll.md – testing
+Additional project documentation is available in:
+
+- `docs/arkitektur.md` – system architecture
+- `api/README.md` – REST API documentation
+- `docs/sakerhet.md` – security notes
+- `docs/felsokning.md` – troubleshooting guide
+- `docs/monitoring.md` – logging and monitoring
+- `docs/arbetslogg.md` – project work log
+- `tests/testprotokoll.md` – testing report
+
+## Summary
+
+This project combines embedded development, communication protocols, and web services into a practical IoT example. It shows how sensor data can move from physical hardware to a live API and how validation and monitoring are handled in a real deployment scenario.

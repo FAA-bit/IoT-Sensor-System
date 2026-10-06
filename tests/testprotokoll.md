@@ -1,215 +1,271 @@
-# Testprotokoll
+# Test Report
 
-## Syfte
+## Purpose and Scope
 
-Syftet med testningen är att kontrollera att hela IoT-systemet
-fungerar från den fysiska sensorn till REST API:t.
+This report documents end-to-end testing of the IoT system, from the
+DHT11 sensor to the REST API. The tests cover sensor readings, Wi-Fi and
+MQTT communication, data validation, API responses, and communication
+failure handling.
 
-Testerna är end-to-end-tester där jag kontrollerar de viktigaste
-delarna av systemet.
+## Test Environment
 
----
-
-## Testmiljö
-
-### Hårdvara
+### Hardware
 
 - ESP32-C6
-- DHT11
-- USB-anslutning till dator
+- DHT11 sensor
+- USB connection to a computer
 
-### Mjukvara
+### Software
 
 - ESP-IDF
-- Mosquitto MQTT
-- Python
-- Paho MQTT
-- Flask
+- Mosquitto MQTT broker
+- Python with Paho MQTT and Flask
 - PowerShell
 
-### Protokoll
+### Protocols and Data Format
 
 - Wi-Fi
 - MQTT
 - HTTP
 - JSON
 
----
+MQTT topic: `iot/esp32/dht11`
 
-## Test 1 – DHT11 sensor
+Example MQTT payload:
 
-**Syfte:** Kontrollera att den fysiska DHT11-sensorn ger temperatur- och luftfuktighetsvärden.
-
-**Test:** Starta ESP32-C6 och öppna ESP-IDF monitor.
-
-**Förväntat resultat:** Temperatur och luftfuktighet visas i terminalen.
-
-**Resultat:** Temperature: 25.4 C | Humidity: 27.0 %
-
-**Status:** PASS
-
-## Test 2 – Wi-Fi
-
-**Syfte:** Kontrollera att ESP32-C6 ansluter till Wi-Fi.
-
-**Test:** Starta ESP32-C6 och kontrollera loggen.
-
-**Förväntat resultat:** ESP32-C6 ansluter och får en IP-adress.
-
-**Resultat:** Wi-Fi connected! IP address: .....
-
-**Status:** PASS
-
-## Test 3 – MQTT-anslutning
-
-**Syfte:** Kontrollera att ESP32-C6 kan ansluta till MQTT-brokern.
-
-**Test:** Starta Mosquitto och ESP32-C6.
-
-**Förväntat resultat:** ESP32-C6 ansluter till MQTT-brokern.
-
-**Resultat:** MQTT connected to broker.....
-
-**Status:** PASS
-
-## Test 4 – MQTT-publicering
-
-**Syfte:** Kontrollera att ESP32-C6 skickar sensorvärden till rätt MQTT-topic.
-
-**MQTT-topic:** iot/esp32/dht11
-
-**Förväntat resultat:** ESP32 publicerar temperatur och luftfuktighet som JSON.
-
-**Exempel på resultat:**
+```json
 {
-    "temperature": 25.4,
-    "humidity": 27.0
+  "temperature": 25.4,
+  "humidity": 27.0
 }
+```
+
+## Test Results
+
+### Test 1 – DHT11 Sensor
+
+**Purpose:** Verify that the sensor provides temperature and humidity
+readings.
+
+**Procedure:** Start the ESP32-C6 and open the ESP-IDF monitor.
+
+**Expected result:** Temperature and humidity readings are displayed in
+the terminal.
+
+**Result:**
+
+```text
+Temperature: 25.4 C | Humidity: 27.0 %
+```
 
 **Status:** PASS
 
-## Test 5 – Python tar emot MQTT-data
+### Test 2 – Wi-Fi Connection
 
-**Syfte:** Kontrollera att Python-applikationen tar emot data från MQTT-brokern.
+**Purpose:** Verify that the ESP32-C6 connects to Wi-Fi.
 
-**Test:** Starta Python API och låt ESP32 skicka sensorvärden.
+**Procedure:** Start the ESP32-C6 and check the device log.
 
-**Förväntat resultat:** Python visar mottagna MQTT-meddelanden.
+**Expected result:** The ESP32-C6 connects and obtains an IP address.
 
-**Exempel:** MQTT message received: iot/esp32/dht11 -> {"temperature":25.5,"humidity":41.0}
+**Result:** The log showed `Wi-Fi connected! IP address: ...`.
+
+**Status:** PASS
+
+### Test 3 – MQTT Connection
+
+**Purpose:** Verify that the ESP32-C6 can connect to the MQTT broker.
+
+**Procedure:** Start Mosquitto and the ESP32-C6.
+
+**Expected result:** The ESP32-C6 connects to the MQTT broker.
+
+**Result:** The log showed `MQTT connected to broker`.
+
+**Status:** PASS
+
+### Test 4 – MQTT Publishing
+
+**Purpose:** Verify that the ESP32-C6 publishes sensor readings to the
+correct MQTT topic.
+
+**Topic:** `iot/esp32/dht11`
+
+**Expected result:** The ESP32 publishes temperature and humidity as
+JSON.
+
+**Example published message:**
+
+```json
+{
+  "temperature": 25.4,
+  "humidity": 27.0
+}
+```
+
+**Status:** PASS
+
+### Test 5 – Python Receives MQTT Data
+
+**Purpose:** Verify that the Python application receives messages from
+the MQTT broker.
+
+**Procedure:** Start the Python API and allow the ESP32-C6 to publish
+sensor readings.
+
+**Expected result:** The Python log displays received MQTT messages.
+
+**Example log output:**
+
+```text
+MQTT message received: iot/esp32/dht11 -> {"temperature":25.5,"humidity":41.0}
 Sensor data updated successfully.
+```
 
 **Status:** PASS
 
-## Test 6 – JSON-validering
+### Test 6 – Valid JSON Validation
 
-**Syfte:** Kontrollera att API:t accepterar giltig JSON och kontrollerar
-sensorvärdena.
+**Purpose:** Verify that the API accepts a valid JSON message containing
+sensor readings.
 
-**Test:** Skicka eller ta emot ett giltigt JSON-meddelande från ESP32.
+**Procedure:** Send or receive a valid JSON message from the ESP32-C6.
 
-**Förväntat resultat:** Sensorvärdet accepteras och sparas.
+**Expected result:** The sensor readings are accepted and stored.
 
-**Resultat:** Sensor data updated successfully.
+**Result:** The Python log showed `Sensor data updated successfully`.
 
 **Status:** PASS
 
-## Test 7 – REST API /api/sensor
+### Test 7 – REST API: `/api/sensor`
 
-**Syfte:** Kontrollera att den senaste sensordatan kan hämtas genom REST API:t.
+**Purpose:** Verify that the latest sensor readings can be retrieved
+from the REST API.
 
-**Anrop:** Invoke-RestMethod http://localhost:5000/api/sensor | ConvertTo-Json
+**Request:**
 
-**Förväntat resultat:** API:t returnerar temperatur och luftfuktighet som JSON.
+```powershell
+Invoke-RestMethod http://localhost:5000/api/sensor | ConvertTo-Json
+```
 
-**Exempel:**
+**Expected result:** The API returns the temperature and humidity as
+JSON.
+
+**Example response:**
+
+```json
 {
-    "temperature": 24.9,
-    "humidity": 26.0
+  "temperature": 24.9,
+  "humidity": 26.0
 }
+```
 
 **Status:** PASS
 
-## Test 8 – Health endpoint
+### Test 8 – Health Endpoint
 
-**Syfte:** Kontrollera att API:t är igång och kan visa systemets status.
+**Purpose:** Verify that the API responds and reports its status and
+monitoring data.
 
-**Anrop:** Invoke-RestMethod http://localhost:5000/api/health | ConvertTo-Json
+**Request:**
 
-**Förväntat resultat:** API:t returnerar status, antal mottagna meddelanden och senaste
-sensorvärden.
+```powershell
+Invoke-RestMethod http://localhost:5000/api/health | ConvertTo-Json
+```
 
-**Exempel:**
+**Expected result:** The API returns its status, the number of received
+messages, and the latest sensor readings.
+
+**Example response:**
+
+```json
 {
-    "status": "ok",
-    "messages_received": 50,
-    "latest_temperature": 24.0,
-    "latest_humidity": 26.0
+  "status": "ok",
+  "messages_received": 50,
+  "latest_temperature": 24.0,
+  "latest_humidity": 26.0
 }
+```
 
 **Status:** PASS
 
-## Test 9 – Monitoring
+### Test 9 – Received Message Monitoring
 
-**Syfte:** Kontrollera att antalet mottagna MQTT-meddelanden ökar.
+**Purpose:** Verify that the received MQTT message counter increases.
 
-**Test:** Låt ESP32 vara igång och kontrollera /api/health flera gånger.
+**Procedure:** Leave the ESP32-C6 running and check `/api/health`
+multiple times.
 
-**Förväntat resultat:** messages_received ökar när nya MQTT-meddelanden tas emot.
+**Expected result:** `messages_received` increases as valid MQTT
+messages arrive.
 
-**Resultat:** messages_received: 50
+**Result:** The counter showed `messages_received: 50`.
 
 **Status:** PASS
 
-## Test 10 – Felhantering
-### Test 10.1 – Felaktig MQTT brokeradress
+## Error Handling Tests
 
-**Test:** MQTT broker-adressen ändrades till en felaktig IP-adress.
+### Test 10.1 – Incorrect MQTT Broker Address
 
-**Förväntat resultat:** API:t ska inte kunna ansluta och ska försöka igen.
+**Purpose:** Check how the API handles an unreachable broker.
 
-**Resultat:** 
+**Procedure:** Change the MQTT broker address to an incorrect IP address.
+
+**Expected result:** The API cannot connect and retries the connection.
+
+**Result:**
+
+```text
 MQTT connection error: timed out
-Retrying MQTT connection in 5 seconds.....
+Retrying MQTT connection in 5 seconds...
+```
 
 **Status:** PASS
 
-Felet dokumenteras mer detaljerat i docs/felsokning.md.
+The failure and its troubleshooting steps are also described in the
+[troubleshooting guide](../docs/felsokning.md).
 
-### Test 10.2 – Felaktig MQTT-topic
+### Test 10.2 – Incorrect MQTT Topic
 
-**Test:** MQTT-topic ändrades till en felaktig topic.
+**Purpose:** Verify that missing data can be identified when the API
+subscribes to the wrong topic.
 
-**Förväntat resultat:** MQTT-anslutningen ska fungera, men API:t ska inte få några
-sensorvärden.
+**Procedure:** Change the topic so that the API subscribes to an
+incorrect topic.
 
-**Resultat:** 
+**Expected result:** The MQTT connection succeeds, but the API receives
+no sensor messages.
+
+**Result:**
+
+```json
 {
-    "latest_humidity": null,
-    "latest_temperature": null,
-    "messages_received": 0,
-    "status": "ok"
+  "latest_humidity": null,
+  "latest_temperature": null,
+  "messages_received": 0,
+  "status": "ok"
 }
+```
 
 **Status:** PASS
 
-Felet dokumenteras mer detaljerat i docs/felsokning.md.
+`status: "ok"` indicates that the API is responding. The zero message
+count and `null` values indicate that no sensor readings have arrived.
 
-## Sammanfattning
+The failure and its troubleshooting steps are also described in the
+[troubleshooting guide](../docs/felsokning.md).
 
-De viktigaste delarna av systemet testades från den fysiska DHT11
-sensorn till REST API:t.
+## Summary
 
-Testerna visade att:
-- DHT11 ger verkliga sensorvärden.
-- ESP32-C6 ansluter till Wi-Fi.
-- ESP32-C6 ansluter till MQTT-brokern.
-- Sensorvärden skickas med MQTT.
-- Python-applikationen tar emot MQTT-data.
--  JSON-data valideras.
-- REST API:t returnerar sensordata.
-- Health-endpointen fungerar.
-- Monitoring med messages_received fungerar.
-- Kommunikationsfel kan upptäckas och åtgärdas.
+The documented tests checked the system from the DHT11 sensor to the
+REST API. All test cases in this report are marked PASS. The tests showed
+that:
 
-**Sammanlagt:** PASS
+- The DHT11 sensor provides temperature and humidity readings.
+- The ESP32-C6 connects to Wi-Fi and the MQTT broker.
+- Sensor readings are published over MQTT and received by the Python
+  application.
+- A valid JSON message containing sensor readings is accepted.
+- The REST API returns sensor data and monitoring information.
+- An incorrect broker address and an incorrect topic produce different,
+  observable communication failures.

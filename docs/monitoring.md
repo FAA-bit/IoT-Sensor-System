@@ -1,52 +1,70 @@
 # Logging and Monitoring
 
-## Logging
+## Application Logs
 
-The system logs important events while it is running.
+The system writes runtime information to the API console and ESP32-C6
+serial monitor.
 
-The Python API logs:
-- MQTT connection
-- MQTT subscription
-- Received sensor messages
-- Sensor data updates
-- Invalid JSON
-- Invalid sensor values
-- MQTT connection errors
+### Python API
 
-The ESP32 also logs:
-- Wi-Fi connection
-- MQTT connection
-- DHT11 readings
-- DHT11 errors
-- MQTT publishing
-These logs are useful when checking if communication between the
-different parts of the system is working.
+The API logs:
 
-## Monitoring
+- MQTT broker connection and subscription events
+- Received MQTT messages
+- Successfully stored sensor readings
+- Invalid JSON and sensor values
+- MQTT connection failures and retry attempts
 
-- The API has a simple monitoring endpoint: GET /api/health
-- It can be tested with: Invoke-RestMethod http://localhost:5000/api/health
+### ESP32-C6 Firmware
 
-The endpoint shows:
-- API status
-- Number of MQTT messages received
-- Latest temperature
-- Latest humidity
-Example:
+The firmware logs:
+
+- Wi-Fi connection events and assigned IP address
+- MQTT connection and publishing events
+- DHT11 readings and read errors
+
+These logs help identify where communication or sensor data flow is
+failing.
+
+## Health Endpoint
+
+The API exposes a monitoring endpoint at `GET /api/health`. Query it
+from PowerShell with:
+
+```powershell
+Invoke-RestMethod http://localhost:5000/api/health | ConvertTo-Json
+```
+
+Example response:
+
+```json
 {
-    "status": "ok",
-    "messages_received": 50,
-    "latest_temperature": 24.0,
-    "latest_humidity": 26.0
+  "status": "ok",
+  "messages_received": 50,
+  "latest_temperature": 24.0,
+  "latest_humidity": 26.0
 }
-The messages_received value is used as a simple monitoring metric.
-It shows whether the API is receiving sensor data from the MQTT broker.
+```
 
-If the number stops increasing while the ESP32 is running, it can
-indicate a problem with the MQTT connection or sensor data flow.
+The response includes:
 
-## Current limitation
+- `status`: indicates that the health endpoint responded
+- `messages_received`: number of valid MQTT readings accepted since the
+  API started
+- `latest_temperature`: temperature from the most recent valid reading,
+  or `null` if no reading has arrived
+- `latest_humidity`: humidity from the most recent valid reading, or
+  `null` if no reading has arrived
 
-The message counter is stored only in memory. If the API is restarted,
-the counter starts again from zero.
-There is currently no database or long-term monitoring system.
+The `status` value does not confirm that the MQTT broker is connected or
+that new sensor data is arriving. Compare `messages_received` over time
+to check whether valid readings continue to reach the API. If the count
+does not increase while the ESP32-C6 is running, investigate the broker
+connection, MQTT topic, and sensor publishing logs.
+
+## Limitations
+
+- The message counter and latest reading are held in memory and reset
+  when the API process restarts.
+- The system does not currently store historical readings or provide
+  persistent monitoring and alerting.

@@ -1,160 +1,175 @@
-# Arkitekturbeskrivning
+# System Architecture
 
-## Översikt
+## Overview
 
-Projektet är ett IoT-system där en fysisk DHT11-sensor är ansluten till en ESP32-C6.
-ESP32-C6 läser av temperatur och luftfuktighet och skickar värdena via Wi-Fi och MQTT till en Mosquitto MQTT-broker.
-Python-applikationen tar emot MQTT-meddelandena och gör sedan datan tillgänglig genom ett REST API med Flask.
+This IoT system reads temperature and humidity from a DHT11 sensor
+connected to an ESP32-C6. The device publishes readings over Wi-Fi and
+MQTT to a Mosquitto broker. A Python application subscribes to the
+messages and makes the latest valid reading available through a Flask
+REST API.
 
-Dataflödet är:
+## Data Flow
 
-          DHT11
-            ↓
-         ESP32-C6
-            ↓ Wi-Fi / MQTT
-        Mosquitto MQTT-broker
-            ↓
-        Python / Paho MQTT
-            ↓ HTTP / REST
-         Flask API
+```text
+DHT11 sensor
+    │ sensor readings
+    ▼
+ESP32-C6 ── Wi-Fi / MQTT publish ──► Mosquitto broker
+                                         │
+                                         │ MQTT subscribe
+                                         ▼
+                                  Python / Paho client
+                                         │
+                                         │ in-memory latest reading
+                                         ▼
+                                   Flask REST API
+                                         │ HTTP / JSON
+                                         ▼
+                                      API client
+```
 
-## Systemets komponenter
+The ESP32-C6 publishes a new reading approximately every two seconds.
+The Python API validates incoming messages and keeps the latest valid
+reading in memory; it does not store historical data.
 
-### 1. DHT11
+## Components
 
-DHT11 är den fysiska sensorn i projektet.
-Den mäter:
-- Temperatur
-- Luftfuktighet
-Sensorn är ansluten till ESP32-C6 och mätvärdena läses regelbundet.
+### DHT11 Sensor
 
-### 2. ESP32-C6
+The DHT11 measures temperature and relative humidity. It is connected
+to the ESP32-C6, which reads the sensor periodically.
 
-ESP32-C6 fungerar som IoT-enheten.
+### ESP32-C6
 
-Dess uppgifter är att:
-- Ansluta till Wi-Fi
-- Läsa temperatur och luftfuktighet från DHT11
-- Kontrollera att sensorvärdena är rimliga
-- Skapa ett JSON-meddelande
-- Publicera data till MQTT-brokern
-- Försöka ansluta igen om Wi-Fi eller MQTT kopplas bort
-ESP32 använder MQTT-topic: iot/esp32/dht11
+The ESP32-C6 acts as the sensor device. Its firmware:
 
+- Connects to the configured Wi-Fi network.
+- Reads temperature and humidity from the DHT11.
+- Checks that the readings fall within the expected ranges.
+- Formats valid readings as JSON.
+- Publishes readings to the MQTT broker on topic
+  `iot/esp32/dht11`.
+- Logs sensor, Wi-Fi, and MQTT events.
 
-### 3. Mosquitto MQTT-broker
+Wi-Fi and MQTT settings are provided locally through
+`main/secrets.h`. The firmware retries Wi-Fi connection a limited number
+of times during startup; MQTT reconnection is handled by the ESP-MQTT
+client.
 
-Mosquitto används som MQTT-broker.
-Brokern tar emot meddelanden från ESP32 och skickar dem vidare till klienter som prenumererar på rätt topic.
+### Mosquitto MQTT Broker
 
-MQTT-port: 1883
-MQTT-topic: iot/esp32/dht11
+Mosquitto receives MQTT publications from the ESP32-C6 and forwards
+them to clients subscribed to the matching topic.
 
-Kommunikationen använder MQTT:s publish/subscribe-modell.
-ESP32 publicerar data och Python-applikationen prenumererar på samma topic.
+- Protocol: MQTT
+- Port: `1883`
+- Topic: `iot/esp32/dht11`
 
-### 4. Python-applikation
+The ESP32-C6 publishes to this topic, and the Python application
+subscribes to it.
 
-Python-applikationen använder Paho MQTT för att ansluta till Mosquitto och ta emot sensorvärden.
-Applikationen:
-- Prenumererar på MQTT-topic
-- Tar emot JSON-data
-- Kontrollerar JSON-formatet
-- Kontrollerar temperatur och luftfuktighet
-- Sparar det senaste giltiga värdet
-- Räknar antal mottagna meddelanden
-- Loggar kommunikationsfel
+### Python MQTT Application
 
-Om MQTT-anslutningen försvinner försöker applikationen ansluta igen efter fem sekunder.
+The Python application uses Paho MQTT to connect to Mosquitto and
+subscribe to `iot/esp32/dht11`. It:
 
-### 5. Flask REST API
+- Parses incoming JSON messages.
+- Checks for `temperature` and `humidity` fields.
+- Converts and validates the sensor values.
+- Stores the latest valid reading in memory.
+- Counts accepted messages and logs communication or validation errors.
 
-Flask används för att göra sensordatan tillgänglig genom HTTP.
-API-port: 5000
-API:t har bland annat dessa endpoints: GET /api/sensor
-Returnerar det senaste giltiga temperatur- och luftfuktighetsvärdet.
-GET /api/health
-Returnerar systemets status, antal mottagna MQTT-meddelanden och det senaste sensorvärdet.
+Temperature must be between `-40` and `80` °C, inclusive. Humidity must
+be between `0` and `100` %, inclusive. If the broker connection fails,
+the application logs the error and retries after five seconds.
 
-## Kommunikation
+### Flask REST API
 
-### a. ESP32-C6 → Mosquitto
+Flask exposes the latest sensor reading over HTTP on port `5000`.
 
-Protokoll: MQTT
-Port: 1883
-Topic: iot/esp32/dht11
-Dataformat: JSON
-ESP32-publicerar ett nytt sensorvärde ungefär varannan sekund.
+- `GET /api/sensor` returns the latest valid temperature and humidity.
+- `GET /api/health` returns the API response status, number of accepted
+  MQTT messages, and latest sensor values.
 
-### b. Mosquitto → Python
+The health endpoint indicates that the API is responding. It does not
+independently confirm that the MQTT broker is connected or sensor data
+is arriving.
 
-Protokoll: MQTT
-Port: 1883
-Topic: iot/esp32/dht11
-Python-applikationen prenumererar på topicen och tar emot
-sensorvärdena.
+## Communication and Data Format
 
-### c. Klient → Flask API
+### ESP32-C6 to Mosquitto
 
-Protokoll: HTTP
-Port: 5000
-Exempel: GET http://localhost:5000/api/sensor
-Dataformat: JSON
+- Protocol: MQTT over Wi-Fi
+- Port: `1883`
+- Topic: `iot/esp32/dht11`
+- Payload: JSON
+- Publishing interval: approximately two seconds
 
-### d. Kommunikationmodell
+### Mosquitto to Python
 
-MQTT använder en publish/subscribe-modell.
-ESP32 är en MQTT publisher och skickar data till: iot/esp32/dht11
-Python-applikationen är en MQTT subscriber och lyssnar på samma topic.
-Mosquitto fungerar som broker mellan dem.
-REST API:t använder istället HTTP request/response-modellen.
-En klient skickar exempelvis en GET-request till /api/sensor och Flask returnerar den senaste sensorinformationen.
+- Protocol: MQTT
+- Port: `1883`
+- Topic: `iot/esp32/dht11`
 
-### e. IP-adresser
+The Python application subscribes to the same topic used by the
+ESP32-C6.
 
-IP-adresserna kan ändras beroende på vilket nätverk jag använder.
-Under testningen kördes MQTT-brokern på datorns lokala IP-adress.
-Exempel:
-MQTT-broker: 172.16.217.22
-Port: 1883
-Flask API: 172.16.217.22
-Port: 5000
+### API Client to Flask
 
-ESP32 får sin IP-adress från Wi-Fi-nätverket genom DHCP.
-Eftersom IP-adresserna kan ändras mellan olika nätverk behöver MQTT-brokeradressen uppdateras när nätverket ändras.
+- Protocol: HTTP
+- Port: `5000`
+- Data format: JSON
 
-### f. Dataformat
+For example, a client can request `GET http://localhost:5000/api/sensor`.
 
-Sensorinformationen skickas som JSON.
-Exempel: 
+### Example MQTT Payload
+
+```json
 {
-    "temperature": 25.5,
-    "humidity": 41.0
+  "temperature": 25.5,
+  "humidity": 41.0
 }
-Temperatur anges i grader Celsius.
-Luftfuktighet anges i procent.
-Python-applikationen validerar värdena innan de sparas.
-Temperatur måste vara mellan -40 °C och 80 °C.
-Luftfuktighet måste vara mellan 0 % och 100 %.
+```
 
-## Varför MQTT?
+Temperature is expressed in degrees Celsius and humidity as a
+percentage.
 
-Jag valde MQTT eftersom det passar bra för IoT-kommunikation.
-ESP32 behöver bara publicera små meddelanden till en topic och behöver inte kommunicera direkt med Python-applikationen.
-Mosquitto fungerar som en mellanhand och gör att flera klienter kan ta emot samma sensorinformation.
-MQTT har också stöd för återanslutning och passar bra för små sensorvärden som skickas regelbundet.
+## Addressing
 
-## Felhantering
+The broker address depends on the network where the system is running.
+Configure the broker host for the ESP32-C6 in the local firmware
+configuration and set `MQTT_BROKER` for the Python API. The ESP32-C6
+obtains its own Wi-Fi address through DHCP.
 
-ESP32 loggar om DHT11-läsningen misslyckas.
-Om MQTT inte är anslutet skickas inte sensorvärdet förrän anslutningen fungerar igen.
-Python-applikationen försöker ansluta till MQTT-brokern igen efter fem sekunder om anslutningen misslyckas.
-Python-applikationen kontrollerar också inkommande JSON och sensorvärden innan de används.
+When the network changes, verify that both MQTT clients can reach the
+broker at its current address. The Flask API listens on all interfaces
+and can be reached at `http://localhost:5000` from the host computer or
+at the host computer's network address from another device on the
+network.
 
-## Säkerhet
+## Why MQTT?
 
-MQTT-brokern använder autentisering med användarnamn och lösenord.
-Wi-Fi- och MQTT-lösenord lagras inte direkt i GitHub-repot.
-De hanteras lokalt genom secrets.h och miljövariabler.
-Den nuvarande MQTT-kommunikationen använder port 1883 utan TLS.
-Detta är en känd begränsning i projektet.
+MQTT is suited to this project because it is a lightweight
+publish/subscribe protocol for small messages. The ESP32-C6 publishes
+readings to a topic without needing a direct connection to the Python
+application. Mosquitto acts as an intermediary and can deliver each
+publication to multiple subscribers.
+
+## Error Handling
+
+- The ESP32-C6 logs failed DHT11 reads.
+- The firmware does not publish a reading while MQTT is disconnected.
+- The ESP-MQTT client manages MQTT reconnection.
+- The Python application retries broker connections after five seconds
+  when a connection attempt fails.
+- The Python application rejects invalid JSON and sensor values before
+  updating the latest reading.
+
+## Security Considerations
+
+The Mosquitto broker requires username/password authentication. The
+firmware credentials are stored in the local, Git-ignored
+`main/secrets.h` file, and the Python API reads credentials from
+environment variables. The current MQTT connection uses port `1883`
+without TLS, so MQTT traffic is not encrypted. See the
+[security notes](sakerhet.md) for risks and deployment recommendations.
