@@ -61,12 +61,13 @@ client.
 Mosquitto receives MQTT publications from the ESP32-C6 and forwards
 them to clients subscribed to the matching topic.
 
-- Protocol: MQTT
-- Port: `1883`
+- Protocol: MQTT over TLS
+- Port: `8883`
 - Topic: `iot/esp32/dht11`
 
 The ESP32-C6 publishes to this topic, and the Python application
-subscribes to it.
+subscribes to it. Both clients use the trusted CA certificate to verify
+the broker certificate.
 
 ### Python MQTT Application
 
@@ -99,16 +100,16 @@ is arriving.
 
 ### ESP32-C6 to Mosquitto
 
-- Protocol: MQTT over Wi-Fi
-- Port: `1883`
+- Protocol: MQTT over TLS over Wi-Fi
+- Port: `8883`
 - Topic: `iot/esp32/dht11`
 - Payload: JSON
 - Publishing interval: approximately two seconds
 
 ### Mosquitto to Python
 
-- Protocol: MQTT
-- Port: `1883`
+- Protocol: MQTT over TLS
+- Port: `8883`
 - Topic: `iot/esp32/dht11`
 
 The Python application subscribes to the same topic used by the
@@ -138,8 +139,9 @@ percentage.
 
 The broker address depends on the network where the system is running.
 Configure the broker host for the ESP32-C6 in the local firmware
-configuration and set `MQTT_BROKER` for the Python API. The ESP32-C6
-obtains its own Wi-Fi address through DHCP.
+configuration and in `api/app.py`. The broker certificate must be valid
+for the address the clients use. The ESP32-C6 obtains its own Wi-Fi
+address through DHCP.
 
 When the network changes, verify that both MQTT clients can reach the
 broker at its current address. The Flask API listens on all interfaces
@@ -170,6 +172,7 @@ publication to multiple subscribers.
 The Mosquitto broker requires username/password authentication. The
 firmware credentials are stored in the local, Git-ignored
 `main/secrets.h` file, and the Python API reads credentials from
-environment variables. The current MQTT connection uses port `1883`
-without TLS, so MQTT traffic is not encrypted. See the
-[security notes](sakerhet.md) for risks and deployment recommendations.
+environment variables. Both MQTT clients use TLS on port `8883` and
+validate the broker certificate using a trusted CA certificate. The
+Flask API itself still uses plain HTTP without authentication. See the
+[security notes](sakerhet.md) for remaining risks and recommendations.

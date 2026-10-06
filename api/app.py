@@ -10,9 +10,14 @@ import time
 # Configuration
 # =========================================================
 
-MQTT_BROKER = os.getenv("MQTT_BROKER")     ## Just an example, replace with your MQTT broker address.
-MQTT_PORT = 1883
+MQTT_BROKER = ("172.16.217.23")     ## Just an example, replace with your MQTT broker address.
+MQTT_PORT = 8883
 MQTT_TOPIC = "iot/esp32/dht11"
+MQTT_CA_CERT = os.path.join(
+    os.path.dirname(__file__),
+    "certs",
+    "ca.crt"
+)
 
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
@@ -141,6 +146,7 @@ mqtt_client = mqtt.Client(
     client_id="iot-api-bridge"
 )
 
+mqtt_client.tls_set(ca_certs=MQTT_CA_CERT)
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -16,6 +17,12 @@
 #include "dht11.h"
 #include "secrets.h"
 
+/* =========================================================
+ * CA certificate declarations
+ * ========================================================= */
+
+extern const uint8_t ca_crt_start[] asm("_binary_ca_crt_start");
+extern const uint8_t ca_crt_end[]   asm("_binary_ca_crt_end");
 
 /* =========================================================
  * Configuration
@@ -24,7 +31,7 @@
 #define DHT11_GPIO          4
 
 #define MQTT_TOPIC          "iot/esp32/dht11"
-#define MQTT_BROKER_PORT    1883
+#define MQTT_BROKER_PORT    8883
 
 
 /* =========================================================
@@ -325,6 +332,9 @@ static void mqtt_init(void)
     {
         .broker.address.uri =
             MQTT_BROKER_URI,
+        
+        .broker.verification.certificate = 
+            (const char *)ca_crt_start,
 
         .credentials.username =
             MQTT_USERNAME,

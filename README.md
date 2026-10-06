@@ -6,7 +6,7 @@ A small IoT project that reads temperature and humidity data from a DHT11 sensor
 
 This project demonstrates an end-to-end IoT data flow:
 
-DHT11 sensor → ESP32-C6 → Wi-Fi → MQTT broker → Python MQTT client → Flask REST API
+DHT11 sensor → ESP32-C6 → Wi-Fi → MQTT over TLS → broker → Python MQTT client → Flask REST API
 
 The system is designed for a local lab or home environment and focuses on reliable sensor data acquisition, MQTT communication, and API access to the latest reading.
 
@@ -14,7 +14,7 @@ The system is designed for a local lab or home environment and focuses on reliab
 
 - DHT11 sensor reading on ESP32-C6
 - Wi-Fi connectivity for the ESP32 device
-- MQTT publishing of JSON sensor data
+- MQTT over TLS for encrypted JSON sensor-data publishing
 - MQTT subscriber in Python
 - Input validation for sensor values and JSON payloads
 - Flask API with live sensor data
@@ -41,6 +41,8 @@ The system is designed for a local lab or home environment and focuses on reliab
 The system publishes and subscribes to:
 
 - `iot/esp32/dht11`
+- MQTT over TLS on port `8883`
+- Clients validate the broker certificate using the trusted CA certificate
 
 ### Message format
 
@@ -58,16 +60,21 @@ The system publishes and subscribes to:
 ├── api/                  # Python Flask API and MQTT consumer
 │   ├── app.py
 │   ├── api.md           # REST API documentation
+│   ├── certs/
+│   │   └── ca.crt       # CA certificate trusted by the API MQTT client
 │   └── requirements.txt
 ├── components/          # Hardware component drivers
 ├── docs/                # Project documentation
 ├── main/                # ESP32 firmware source
 │   ├── main.c
 │   ├── secrets.h
+│   ├── certs/
+│   │   └── ca.crt       # CA certificate embedded in firmware
 │   └── CMakeLists.txt
 ├── tests/               # Test documentation and protocol notes
 ├── CMakeLists.txt       # ESP-IDF project configuration
 ├── mqtt.conf            # Example MQTT broker configuration
+├── certs/               # Mosquitto TLS certificates and private keys
 ├── README.md            # Project overview
 ├── sdkconfig            # ESP-IDF config
 └── dependencies.lock    # Dependency lock file
@@ -86,7 +93,10 @@ The system publishes and subscribes to:
 
 ## Configuration
 
-Before running the firmware, update the Wi-Fi and MQTT settings in `main/secrets.h`.
+Before running the firmware, update the Wi-Fi and MQTT settings in
+`main/secrets.h`. The broker URI should use `mqtts://` and port `8883`.
+The firmware and API both need the CA certificate that signed the broker
+certificate.
 
 The file contains the following values that should be customized for your environment:
 
@@ -96,7 +106,14 @@ The file contains the following values that should be customized for your enviro
 - `MQTT_USERNAME`
 - `MQTT_PASSWORD`
 
-Important: do not commit real credentials to version control. Use local-only configuration or environment variables when possible.
+The API broker host and TLS port are configured in `api/app.py`; its
+MQTT credentials are read from the `MQTT_USERNAME` and `MQTT_PASSWORD`
+environment variables.
+
+Important: do not commit real credentials, private keys, or generated
+firmware containing credentials to version control. Keep private
+certificate keys secure; only distribute the CA certificate to clients
+that need to verify the broker.
 
 ## Setup and Installation
 
@@ -113,7 +130,11 @@ pip install -r requirements.txt
 
 ### 3. Start Mosquitto
 
-Make sure the Mosquitto broker is running and reachable from the ESP32 and the Python API server.
+Make sure Mosquitto is configured with a TLS listener on port `8883`,
+has access to its server certificate and private key, and is reachable
+from both the ESP32 and the Python API server. The clients must have
+the CA certificate used to verify the broker certificate. Update the
+certificate paths in `mqtt.conf` for the machine running Mosquitto.
 
 ### 4. Build and flash the ESP32 firmware
 
@@ -190,6 +211,7 @@ Included test areas:
 - DHT11 sensor readings
 - ESP32-C6 Wi-Fi connection
 - MQTT connectivity
+- MQTT TLS certificate verification
 - MQTT publishing
 - Python MQTT subscription
 - JSON validation

@@ -31,22 +31,24 @@ http://localhost:5000
 
 ## Configuration
 
-The API reads the MQTT broker host and optional credentials from
-environment variables:
+The API uses the MQTT broker host configured in `app.py`, the TLS port
+`8883`, and the CA certificate at `certs/ca.crt`. The broker host can
+vary by network and should be set to the address in the broker
+certificate.
+
+The API reads MQTT credentials from environment variables:
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `MQTT_BROKER` | Yes | Hostname or IP address of the MQTT broker |
-| `MQTT_USERNAME` | No | MQTT username |
-| `MQTT_PASSWORD` | No | MQTT password |
+| `MQTT_USERNAME` | Yes | MQTT username |
+| `MQTT_PASSWORD` | Yes | MQTT password |
 
-The MQTT port is `1883`, and the subscribed topic is
-`iot/esp32/dht11`; both are currently defined in `app.py`.
+The API uses TLS and validates the broker certificate using
+`certs/ca.crt`. The subscribed topic is `iot/esp32/dht11`.
 
-The API uses MQTT username/password authentication only when both
-`MQTT_USERNAME` and `MQTT_PASSWORD` are set. Configure credentials
-through environment variables rather than adding real credentials to
-source control.
+Configure credentials through environment variables rather than adding
+real credentials to source control. Both credentials must be set for
+the API to authenticate with the broker.
 
 ## Endpoints
 
@@ -108,8 +110,8 @@ connected or that sensor data is arriving.
 ## MQTT Integration
 
 The Python application subscribes to the MQTT topic
-`iot/esp32/dht11` on the configured broker at port `1883`. It expects
-messages in this JSON format:
+`iot/esp32/dht11` on the configured broker using MQTT over TLS on port
+`8883`. It expects messages in this JSON format:
 
 ```json
 {
@@ -141,5 +143,5 @@ log. They do not update the latest reading or increment
 | --- | --- |
 | No valid reading received yet | `/api/sensor` returns `503`; `/api/health` returns `null` latest values |
 | Invalid MQTT JSON or sensor values | Message is discarded and an error is logged |
-| MQTT broker connection fails | The application logs the error and retries after 5 seconds |
+| MQTT/TLS broker connection fails | The application logs the error and retries after 5 seconds; check the broker address, credentials, CA certificate, and certificate name |
 | API process is stopped | API endpoints are unavailable |

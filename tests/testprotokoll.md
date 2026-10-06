@@ -21,11 +21,13 @@ failure handling.
 - Mosquitto MQTT broker
 - Python with Paho MQTT and Flask
 - PowerShell
+- Mosquitto TLS certificates and client CA certificates
 
 ### Protocols and Data Format
 
 - Wi-Fi
 - MQTT
+- TLS
 - HTTP
 - JSON
 
@@ -72,15 +74,20 @@ Temperature: 25.4 C | Humidity: 27.0 %
 
 **Status:** PASS
 
-### Test 3 – MQTT Connection
+### Test 3 – MQTT/TLS Connection
 
-**Purpose:** Verify that the ESP32-C6 can connect to the MQTT broker.
+**Purpose:** Verify that the ESP32-C6 can establish an authenticated,
+TLS-protected connection to the MQTT broker.
 
-**Procedure:** Start Mosquitto and the ESP32-C6.
+**Procedure:** Start the Mosquitto TLS listener and the ESP32-C6 with
+the trusted CA certificate configured.
 
-**Expected result:** The ESP32-C6 connects to the MQTT broker.
+**Expected result:** The ESP32-C6 validates the broker certificate and
+connects to the MQTT broker on port `8883`.
 
-**Result:** The log showed `MQTT connected to broker`.
+**Result:** The log showed `MQTT connected to broker`. The firmware is
+configured to use an `mqtts://` broker URI and the trusted CA
+certificate.
 
 **Status:** PASS
 
@@ -263,6 +270,8 @@ that:
 
 - The DHT11 sensor provides temperature and humidity readings.
 - The ESP32-C6 connects to Wi-Fi and the MQTT broker.
+- The ESP32-C6 uses MQTT over TLS and a trusted CA certificate to
+  connect to the broker.
 - Sensor readings are published over MQTT and received by the Python
   application.
 - A valid JSON message containing sensor readings is accepted.

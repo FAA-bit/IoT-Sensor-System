@@ -49,8 +49,9 @@ Stage 2 — DONE ✅
 - Network : ESP32-C6 → Wi-Fi
 
 Stage 3 — DONE ✅
-- MQTT : ESP32-C6 → Mosquitto
-- When working with Mosquitto, use this command at the start each time: $env:Path += ";C:\Program Files\mosquitto"
+- MQTT over TLS : ESP32-C6 → Mosquitto on port 8883
+- When working with Mosquitto, use this command at the start each time: 
+$env:Path += ";C:\Program Files\mosquitto"
 
 Stage 4 — DONE ✅
 - JSON data contract :
@@ -61,7 +62,8 @@ Stage 4 — DONE ✅
 
 Stage 5 — DONE ✅
 MQTT security
-- MQTT username/password - password: Hooyo143.
+- MQTT username/password authentication
+- TLS certificate validation
 - No anonymous access
 - Keep credentials out of GitHub
 - Proper error handling

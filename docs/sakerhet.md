@@ -17,6 +17,13 @@ The ESP32 credentials are configured locally in `main/secrets.h`. The
 Python API reads `MQTT_USERNAME` and `MQTT_PASSWORD` from environment
 variables and uses them when both are set.
 
+### MQTT TLS
+
+The Mosquitto broker accepts TLS connections on port `8883`. The ESP32-C6
+and Python API use the trusted CA certificate to verify the broker
+certificate. This encrypts MQTT traffic in transit and helps clients
+confirm they are connecting to the expected broker.
+
 ### Credential Handling
 
 `main/secrets.h` is listed in `.gitignore` and is not tracked by Git.
@@ -41,22 +48,45 @@ This helps reject malformed or implausible readings. It does not
 authenticate message publishers or replace access control on the MQTT
 broker.
 
-## Risks and Limitations
+## Security Limitations
 
-### MQTT traffic is not encrypted
+- **TLS protects MQTT only.** The Flask API uses plain HTTP on port
+  `5000`; requests and responses are not encrypted and the endpoints
+  have no authentication.
+- **No client-certificate authentication.** MQTT clients validate the
+  broker certificate and authenticate with username and password. The
+  broker does not require a separate client certificate.
+- **No topic-level access policy is configured.** The current
+  Mosquitto configuration uses a password file but does not define
+  per-client topic permissions.
+- **Firmware contains device credentials.** Wi-Fi and MQTT credentials
+  are compiled into the ESP32-C6 firmware, so someone with access to a
+  device or firmware image may be able to recover them.
+- **No rate limiting or abuse protection.** The API has no rate limits,
+  and the broker/API listeners are reachable on their configured
+  network interfaces. Network access should be restricted with
+  firewall rules.
+- **No historical or durable monitoring.** Sensor values and the
+  accepted-message counter are stored in memory and reset when the API
+  restarts. The health endpoint does not independently confirm MQTT
+  connectivity.
+- **Input checks are basic validation, not a trust guarantee.** The API
+  checks JSON fields and value ranges, but these checks do not prove
+  that readings came from the physical sensor.
 
-The current broker listener uses MQTT on port `1883` without TLS.
-Username and password authentication does not encrypt the connection;
-credentials and messages may be exposed to parties able to observe the
-network traffic.
+## Risk Details
 
-For deployment beyond a trusted development network, configure MQTT over
-TLS, validate the broker certificate on clients, and use unique,
-strongly protected credentials.
+### Protect private keys and certificates
+
+The broker's server private key and CA private key must be kept secret
+and must not be distributed to clients or committed to version control.
+Clients need only the CA certificate to verify the broker certificate.
+
+If a private key is exposed, replace the affected key and certificates.
 
 ### Broker listens on all interfaces
 
-The Mosquitto configuration listens on `0.0.0.0:1883`. This makes the
+The Mosquitto configuration listens on `0.0.0.0:8883`. This makes the
 broker reachable through all network interfaces, subject to firewall and
 network controls. Restrict access to trusted devices and networks, and
 avoid exposing the listener to the public internet.
@@ -76,16 +106,3 @@ Keeping the header out of Git prevents accidental repository disclosure,
 but does not protect credentials embedded in a firmware image or
 extracted from a device. Use credentials with limited privileges and
 rotate them if a device or firmware image is exposed.
-
-## Deployment Recommendations
-
-- Use TLS for MQTT and HTTPS for the API.
-- Keep broker and API ports restricted to trusted networks with firewall
-  rules.
-- Use unique, strong credentials and rotate them when exposure is
-  suspected.
-- Grant MQTT clients only the topic permissions they need.
-- Do not commit credentials, generated firmware containing real
-  credentials, or broker password files.
-- Replace the Flask development server with a production-grade WSGI
-  server before deployment.
