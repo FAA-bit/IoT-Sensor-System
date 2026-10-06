@@ -57,7 +57,7 @@ The system publishes and subscribes to:
 .
 ├── api/                  # Python Flask API and MQTT consumer
 │   ├── app.py
-│   ├── README.md           # REST API documentation
+│   ├── api.md           # REST API documentation
 │   └── requirements.txt
 ├── components/          # Hardware component drivers
 ├── docs/                # Project documentation
@@ -223,7 +223,7 @@ More troubleshooting details are available in:
 Additional project documentation is available in:
 
 - `docs/arkitektur.md` – system architecture
-- `api/README.md` – REST API documentation
+- `api/api.md` – REST API documentation
 - `docs/sakerhet.md` – security notes
 - `docs/felsokning.md` – troubleshooting guide
 - `docs/monitoring.md` – logging and monitoring
